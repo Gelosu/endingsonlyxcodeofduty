@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#18e8ff"/>
+      <stop offset="100%" stop-color="#ff2a44"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#060608"/>
+  <!-- corner web: radiating threads -->
+  <g stroke="url(#g)" stroke-width="2" stroke-linecap="round" fill="none">
+    <line x1="4" y1="4" x2="60" y2="18"/>
+    <line x1="4" y1="4" x2="46" y2="60"/>
+    <line x1="4" y1="4" x2="60" y2="46"/>
+    <line x1="4" y1="4" x2="18" y2="60"/>
+    <line x1="4" y1="4" x2="60" y2="60"/>
+    <path d="M 22 6 Q 34 16 26 30" opacity="0.85"/>
+    <path d="M 40 10 Q 46 30 34 44" opacity="0.85"/>
+    <path d="M 52 24 Q 50 42 34 52" opacity="0.85"/>
+  </g>
+  <!-- hub -->
+  <rect x="1.5" y="1.5" width="7" height="7" rx="1.5" transform="rotate(45 5 5)" fill="#f3d98a"/>
+</svg>
