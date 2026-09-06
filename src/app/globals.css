@@ -221,3 +221,68 @@ button,
 a {
   -webkit-tap-highlight-color: transparent;
 }
+
+/* ambient glitch flicker around a framed element's border — wrap the
+   content in a `relative` container with this class. Runs continuously,
+   mostly settled, with brief chromatic-aberration flashes. */
+.letter-frame {
+  position: relative;
+}
+.letter-frame::before,
+.letter-frame::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 2px solid transparent;
+  pointer-events: none;
+}
+.letter-frame::before {
+  border-color: var(--glitch-cyan);
+  animation: letter-border-glitch-1 4.4s infinite;
+}
+.letter-frame::after {
+  border-color: var(--glitch-red);
+  animation: letter-border-glitch-2 4.4s infinite;
+}
+@keyframes letter-border-glitch-1 {
+  0%, 86%, 100% { opacity: 0; clip-path: inset(0 0 100% 0); transform: translate(0, 0); }
+  87% { opacity: 0.85; clip-path: inset(4% 0 78% 0); transform: translate(-3px, 1px); }
+  89% { opacity: 0.8; clip-path: inset(60% 0 8% 0); transform: translate(2px, -2px); }
+  91% { opacity: 0.75; clip-path: inset(30% 0 45% 0); transform: translate(-2px, 0); }
+  93%, 100% { opacity: 0; clip-path: inset(0 0 100% 0); transform: translate(0, 0); }
+}
+@keyframes letter-border-glitch-2 {
+  0%, 88%, 100% { opacity: 0; clip-path: inset(100% 0 0 0); transform: translate(0, 0); }
+  89% { opacity: 0.8; clip-path: inset(70% 0 5% 0); transform: translate(3px, 1px); }
+  91% { opacity: 0.75; clip-path: inset(10% 0 68% 0); transform: translate(-3px, -1px); }
+  93% { opacity: 0.7; clip-path: inset(40% 0 30% 0); transform: translate(2px, 0); }
+  95%, 100% { opacity: 0; clip-path: inset(100% 0 0 0); transform: translate(0, 0); }
+}
+
+/* sealed-envelope flap, drawn as a triangle over the top of the card */
+.envelope-flap {
+  position: absolute;
+  inset: 0;
+  height: 58%;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  background: linear-gradient(160deg, rgba(45, 212, 255, 0.14), rgba(255, 42, 68, 0.1));
+  border-bottom: 1px solid rgba(242, 242, 246, 0.15);
+}
+
+/* one-shot chromatic-aberration explosion, fired when the envelope is
+   tapped open — the card scales OUT and dissolves into color-split
+   streaks (dispersing into the ambient glitch) rather than collapsing
+   to a blank point, so the screen never reads as "gone black". */
+@keyframes envelope-burst {
+  0% { transform: translate(0, 0) skew(0deg) scale(1); filter: none; opacity: 1; }
+  12% { transform: translate(-7px, 3px) skew(-4deg) scale(1.03); filter: drop-shadow(7px 0 var(--glitch-red)) drop-shadow(-7px 0 var(--glitch-cyan)); opacity: 1; }
+  28% { transform: translate(8px, -4px) skew(5deg) scale(1.06); filter: drop-shadow(-8px 2px var(--glitch-red)) drop-shadow(8px -2px var(--glitch-cyan)); opacity: 0.95; }
+  46% { transform: translate(-6px, 2px) skew(-3deg) scale(1.1); filter: drop-shadow(6px -1px var(--glitch-red)) drop-shadow(-6px 1px var(--glitch-cyan)); opacity: 0.82; }
+  64% { transform: translate(5px, -2px) skew(3deg) scale(1.16); filter: drop-shadow(-5px 0 var(--glitch-red)) drop-shadow(5px 0 var(--glitch-cyan)); opacity: 0.55; }
+  82% { transform: translate(-2px, 1px) skew(-1deg) scale(1.24); opacity: 0.25; }
+  100% { transform: scale(1.32); opacity: 0; }
+}
+.envelope-burst {
+  animation: envelope-burst 0.46s steps(1, end) forwards;
+}
