@@ -6,22 +6,87 @@ import { AnimatePresence, motion } from "framer-motion";
 import WebView from "./WebView";
 import CornerFrame from "./CornerFrame";
 import type { Letter } from "@/lib/letters";
+import { SpiderScore } from "@/lib/spiderScore";
 
 // slow, steady read-along scroll once the letter is open — pixels per second
 const AUTO_SCROLL_SPEED = 16;
+const NAME_KEY = "endings-only-name";
+
+type Reply = { id: string; name: string; text: string; createdAt: string };
 
 export default function LetterView({ letter }: { letter?: Letter }) {
   const router = useRouter();
   const [phase, setPhase] = useState<"closed" | "bursting" | "open">("closed");
+  const [muted, setMuted] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const userScrolledRef = useRef(false);
+  const scoreRef = useRef<SpiderScore | null>(null);
+
+  const [replyOpen, setReplyOpen] = useState(false);
+  const [replies, setReplies] = useState<Reply[]>([]);
+  const [draft, setDraft] = useState("");
+  const [name, setName] = useState(() => {
+    try {
+      return localStorage.getItem(NAME_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const [submitting, setSubmitting] = useState(false);
 
   const body = letter?.body ?? "";
+
+  // load whatever replies are already there once the letter is open
+  useEffect(() => {
+    if (phase !== "open" || !letter) return;
+    fetch(`/api/letter-comments?letter=${encodeURIComponent(letter.slug)}`)
+      .then((r) => r.json())
+      .then((res) => setReplies(res.comments ?? []))
+      .catch(() => {});
+  }, [phase, letter]);
+
+  const sendReply = async () => {
+    const text = draft.trim();
+    if (!letter || !text || submitting) return;
+    setSubmitting(true);
+    try {
+      localStorage.setItem(NAME_KEY, name);
+      const res = await fetch("/api/letter-comments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ letter: letter.slug, text, name }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setReplies(updated.comments ?? []);
+        setDraft("");
+      }
+    } catch {
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const openEnvelope = () => {
     if (phase !== "closed") return;
     setPhase("bursting");
+    // audio can only start from a real user gesture — the tap that opens
+    // the envelope is that gesture, so the score begins right here
+    if (!scoreRef.current) scoreRef.current = new SpiderScore();
+    scoreRef.current.start();
   };
+
+  const toggleMuted = () => {
+    setMuted((m) => {
+      scoreRef.current?.setMuted(!m);
+      return !m;
+    });
+  };
+
+  // stop the score if the reader leaves the page
+  useEffect(() => {
+    return () => scoreRef.current?.stop();
+  }, []);
 
   // the burst is a fixed-length one-shot animation; hand off to the open
   // letter once it plays out
@@ -83,6 +148,26 @@ export default function LetterView({ letter }: { letter?: Letter }) {
         </svg>
         back to the web
       </button>
+
+      {letter && phase !== "closed" && (
+        <button
+          onClick={toggleMuted}
+          aria-label={muted ? "Unmute music" : "Mute music"}
+          className="touch-manipulation absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-full border-2 border-teal/60 bg-black/50 px-3 py-2 text-xs uppercase tracking-widest text-teal transition-colors hover:border-gold-bright hover:text-gold-bright sm:right-6 sm:top-6"
+        >
+          {muted ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M4 9v6h4l5 5V4L8 9H4z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M17 9l5 6M22 9l-5 6" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M4 9v6h4l5 5V4L8 9H4z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M16 8a5 5 0 010 8M19 5a9 9 0 010 14" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          )}
+        </button>
+      )}
 
       <div className="relative z-10 flex h-full items-center justify-center p-4 sm:p-8">
         {!letter ? (
@@ -152,6 +237,66 @@ export default function LetterView({ letter }: { letter?: Letter }) {
                     {body}
                   </p>
                 </div>
+
+                <button
+                  onClick={() => setReplyOpen((v) => !v)}
+                  className={`touch-manipulation shrink-0 border-t border-white/10 py-2.5 text-center text-[10px] uppercase tracking-widest transition-colors ${
+                    replyOpen ? "text-teal" : "text-foreground/50 hover:text-teal"
+                  }`}
+                >
+                  💬 reply to Gelo {replies.length > 0 ? `(${replies.length})` : ""}
+                </button>
+
+                <AnimatePresence>
+                  {replyOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="shrink-0 overflow-hidden border-t border-teal/20 bg-black/30"
+                    >
+                      {replies.length > 0 && (
+                        <div className="max-h-28 space-y-2 overflow-y-auto px-4 py-2.5 sm:px-6">
+                          {replies.map((r) => (
+                            <div key={r.id} className="text-xs">
+                              <span className="font-heading text-gold-bright">{r.name}</span>{" "}
+                              <span className="text-foreground/80">{r.text}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          sendReply();
+                        }}
+                        className="flex items-center gap-2 border-t border-white/10 px-4 py-2.5 sm:px-6"
+                      >
+                        <input
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          placeholder="name"
+                          maxLength={40}
+                          className="w-16 shrink-0 bg-transparent text-[16px] text-foreground/70 placeholder:text-foreground/30 focus:outline-none sm:text-xs"
+                        />
+                        <input
+                          value={draft}
+                          onChange={(e) => setDraft(e.target.value)}
+                          placeholder="write back to Gelo..."
+                          maxLength={800}
+                          className="min-w-0 flex-1 bg-transparent text-[16px] text-foreground focus:outline-none sm:text-xs"
+                        />
+                        <button
+                          type="submit"
+                          disabled={!draft.trim() || submitting}
+                          className="touch-manipulation shrink-0 text-xs text-teal disabled:opacity-30"
+                        >
+                          send
+                        </button>
+                      </form>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             )}
           </AnimatePresence>
